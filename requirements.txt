@@ -1,0 +1,6 @@
+flask
+pymongo[srv]
+python-dotenv
+pandas
+openpyxl
+reportlab
