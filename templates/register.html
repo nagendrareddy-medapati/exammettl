@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register | Exammettl</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}"/>
+</head>
+<body>
+  <div class="login-box" style="max-width:440px;">
+    <div class="brand-logo" style="justify-content:center;margin-bottom:10px;">Exammettl</div>
+    <h2>📋 Create Account</h2>
+    {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
+    {% if error %}<p class="error-msg">{{ error }}</p>{% endif %}
+    <form method="POST" autocomplete="off">
+      <input type="text" name="username" placeholder="Username" required maxlength="50"/>
+      <input type="email" name="email" placeholder="Email Address" required/>
+      <input type="password" name="password" placeholder="Password (min 6 chars)" required/>
+      <select name="role">
+        <option value="candidate">Candidate</option>
+        <option value="evaluator">Evaluator</option>
+      </select>
+      <br/>
+      <button type="submit" style="width:100%;margin-top:4px;">Register</button>
+    </form>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:16px;">
+      Already have an account? <a href="/">Login</a>
+    </p>
+  </div>
+
+<script>
+// Ripple effect on buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var r = document.createElement('span');
+  r.classList.add('ripple');
+  var rect = btn.getBoundingClientRect();
+  var size = Math.max(rect.width, rect.height) * 2;
+  r.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size/2) + 'px;top:' + (e.clientY - rect.top - size/2) + 'px;';
+  btn.appendChild(r);
+  setTimeout(function() { r.remove(); }, 500);
+});
+// Smooth page-out on link navigation
+document.querySelectorAll('a[href]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript') || href.startsWith('mailto')) return;
+    e.preventDefault();
+    document.body.style.transition = 'opacity .25s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function() { window.location.href = href; }, 240);
+  });
+});
+</script>
+</body>
+</html>

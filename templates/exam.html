@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Online Exam | Exammettl</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}"/>
+</head>
+<body>
+  {% if error %}
+  <div class="container">
+    <p class="error-msg">{{ error }}</p>
+    <a href="/dashboard"><button>← Back to Dashboard</button></a>
+  </div>
+  {% else %}
+
+  <div id="timer-box">
+    ⏱ Time Left: <span id="timer" style="font-family:var(--mono);">--:--</span>
+    <span id="autosave-status" style="font-size:12px;margin-left:16px;opacity:0.7;"></span>
+  </div>
+
+  <form method="POST" id="examForm">
+    <!-- Question Palette -->
+    <div class="palette">
+      <p style="font-size:10px;margin:0 0 8px;text-align:center;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Q</p>
+      {% for q in questions %}
+      <button type="button" id="palette-btn-{{ loop.index0 }}" onclick="showQuestion({{ loop.index0 }})">
+        {{ loop.index }}
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- Questions -->
+    {% for q in questions %}
+    <div class="question" id="question-{{ loop.index0 }}" style="display:none;">
+      <p class="q-number">Question {{ loop.index }} of {{ questions|length }}
+        {% set qtype = q[7] if q|length > 7 else 'mcq' %}
+        {% if qtype == 'truefalse' %}<span style="font-size:11px;background:rgba(108,99,255,.2);color:#a89fff;padding:2px 8px;border-radius:10px;margin-left:8px;font-family:var(--mono);">True/False</span>
+        {% elif qtype in ('essay','descriptive') %}<span style="font-size:11px;background:rgba(155,89,182,.2);color:#c39bd3;padding:2px 8px;border-radius:10px;margin-left:8px;font-family:var(--mono);">Essay</span>
+        {% elif qtype == 'short_answer' %}<span style="font-size:11px;background:rgba(245,166,35,.2);color:#f9c76b;padding:2px 8px;border-radius:10px;margin-left:8px;font-family:var(--mono);">Short Answer</span>
+        {% endif %}
+        {% if q|length > 10 and q[10] %}
+          <span style="font-size:11px;background:var(--surface2);color:{{ 'var(--accent2)' if q[10]=='easy' else 'var(--warning)' if q[10]=='medium' else 'var(--danger)' }};padding:2px 8px;border-radius:10px;margin-left:6px;font-family:var(--mono);">{{ q[10] | capitalize }}</span>
+        {% endif %}
+      </p>
+      <p style="font-size:15px;line-height:1.6;margin:0 0 16px;"><b>{{ q[1] }}</b></p>
+
+      {% if qtype == 'mcq' %}
+        {% for opt, label in [('A', q[2]), ('B', q[3]), ('C', q[4]), ('D', q[5])] %}
+        <label class="option">
+          <input type="radio" name="{{ q[0] }}" value="{{ opt }}" onchange="markAnswered({{ loop.index0 - 1 }})"/>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--accent);margin-right:8px;">{{ opt }}</span> {{ label }}
+        </label>
+        {% endfor %}
+      {% elif qtype == 'truefalse' %}
+        <label class="option"><input type="radio" name="{{ q[0] }}" value="A" onchange="markAnswered({{ loop.index0 }})"/> <span style="font-family:var(--mono);font-size:12px;color:var(--accent2);margin-right:8px;">T</span> True</label>
+        <label class="option"><input type="radio" name="{{ q[0] }}" value="B" onchange="markAnswered({{ loop.index0 }})"/> <span style="font-family:var(--mono);font-size:12px;color:var(--danger);margin-right:8px;">F</span> False</label>
+      {% elif qtype in ('essay', 'descriptive') %}
+        <textarea name="{{ q[0] }}" rows="6" placeholder="Write your answer here..." oninput="markAnswered({{ loop.index0 }})"></textarea>
+      {% elif qtype == 'short_answer' %}
+        <input type="text" name="{{ q[0] }}" placeholder="Your answer..." oninput="markAnswered({{ loop.index0 }})"/>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="nav-buttons">
+      <button type="button" onclick="prevQuestion()">← Previous</button>
+      <button type="button" onclick="nextQuestion()">Next →</button>
+      <button type="submit" id="submitBtn" onclick="return confirmSubmit()" style="background:var(--accent2);color:#0f1117;">✔ Submit Exam</button>
+    </div>
+  </form>
+
+  <div style="text-align:center;margin-top:10px;">
+    <a href="/logout"><button class="btn-secondary">Logout</button></a>
+  </div>
+
+  <script>
+  (function(){
+    var totalQuestions = {{ questions|length }};
+    var current = 0;
+    var answered = new Array(totalQuestions).fill(false);
+    var duration = {{ duration|default(600) }};
+    var timeLeft = duration;
+
+    function showQuestion(index){
+      document.querySelectorAll(".question").forEach(function(el){ el.style.display="none"; });
+      var q = document.getElementById("question-"+index);
+      if(q) q.style.display="block";
+      current = index;
+      document.querySelectorAll(".palette button").forEach(function(btn,i){
+        btn.classList.toggle("active", i===index);
+      });
+    }
+    function nextQuestion(){ if(current<totalQuestions-1) showQuestion(current+1); }
+    function prevQuestion(){ if(current>0) showQuestion(current-1); }
+    function markAnswered(index){
+      answered[index]=true;
+      var btn=document.getElementById("palette-btn-"+index);
+      if(btn) btn.classList.add("answered");
+    }
+    function confirmSubmit(){
+      var unanswered=answered.filter(function(a){return !a;}).length;
+      if(unanswered>0) return confirm("You have "+unanswered+" unanswered question(s).\nSubmit anyway?");
+      return confirm("Submit the exam?");
+    }
+    window.showQuestion=showQuestion; window.nextQuestion=nextQuestion;
+    window.prevQuestion=prevQuestion; window.markAnswered=markAnswered;
+    window.confirmSubmit=confirmSubmit;
+    showQuestion(0);
+
+    // Timer
+    var timerEl=document.getElementById("timer");
+    var timerBox=document.getElementById("timer-box");
+    function updateTimer(){
+      var m=Math.floor(timeLeft/60), s=timeLeft%60;
+      timerEl.textContent=m+":"+(s<10?"0":"")+s;
+      if(timeLeft<=60) timerBox.classList.add("timer-warning");
+      if(timeLeft<=0){
+        clearInterval(countdown);
+        alert("Time is up! Submitting automatically.");
+        document.getElementById("examForm").submit();
+      }
+      timeLeft--;
+    }
+    updateTimer();
+    var countdown=setInterval(updateTimer,1000);
+
+    // Auto-save every 30 seconds
+    function collectAnswers(){
+      var answers={};
+      var inputs=document.getElementById("examForm").elements;
+      for(var i=0;i<inputs.length;i++){
+        var el=inputs[i];
+        if((el.type==="radio"&&el.checked)||el.tagName==="TEXTAREA"||(el.type==="text")){
+          if(el.name) answers[el.name]=el.value;
+        }
+      }
+      return answers;
+    }
+    function autoSave(){
+      fetch("/autosave",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(collectAnswers())})
+        .then(function(){
+          var s=document.getElementById("autosave-status");
+          if(s){s.textContent="✓ Saved";setTimeout(function(){s.textContent="";},2000);}
+        }).catch(function(){});
+    }
+    setInterval(autoSave,30000);
+
+    // Proctoring
+    function logActivity(activity){
+      fetch("/log",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:"activity="+encodeURIComponent(activity)});
+    }
+    document.addEventListener("visibilitychange",function(){
+      if(document.hidden){alert("Warning: Tab switching detected! This has been logged.");logActivity("Tab Switched");}
+    });
+    document.addEventListener("contextmenu",function(e){e.preventDefault();logActivity("Right Click");});
+    document.addEventListener("copy",function(e){e.preventDefault();alert("Copying is not allowed.");logActivity("Copy Attempt");});
+    document.addEventListener("keydown",function(e){
+      if((e.ctrlKey&&["c","v","u","s","a"].includes(e.key.toLowerCase()))||e.key==="F12"){
+        e.preventDefault();logActivity("Shortcut: "+e.key);
+      }
+    });
+  })();
+  </script>
+  {% endif %}
+
+<script>
+// Ripple effect on buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var r = document.createElement('span');
+  r.classList.add('ripple');
+  var rect = btn.getBoundingClientRect();
+  var size = Math.max(rect.width, rect.height) * 2;
+  r.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size/2) + 'px;top:' + (e.clientY - rect.top - size/2) + 'px;';
+  btn.appendChild(r);
+  setTimeout(function() { r.remove(); }, 500);
+});
+// Smooth page-out on link navigation
+document.querySelectorAll('a[href]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript') || href.startsWith('mailto')) return;
+    e.preventDefault();
+    document.body.style.transition = 'opacity .25s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function() { window.location.href = href; }, 240);
+  });
+});
+</script>
+</body>
+</html>

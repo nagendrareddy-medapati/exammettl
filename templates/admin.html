@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard | Exammettl</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}"/>
+</head>
+<body>
+  <div class="container">
+    <div style="text-align:right;margin-bottom:-8px;"><span class="brand-logo" style="font-size:.85rem;">Exammettl</span></div>
+    <div class="page-header">
+      <h2>🛠 Admin Dashboard</h2>
+      <div class="actions">
+        <a href="/admin/create_exam"><button>📅 Create Exam</button></a>
+        <a href="/export"><button class="btn-secondary">📥 Export Excel</button></a>
+        <a href="/logout"><button class="btn-secondary">Logout</button></a>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-num">{{ questions|length }}</div>
+        <div class="stat-label">Questions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" style="color:var(--accent2);">{{ exams|length }}</div>
+        <div class="stat-label">Exams</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" style="color:var(--warning);">{{ users|length }}</div>
+        <div class="stat-label">Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" style="color:var(--danger);">{{ results|length }}</div>
+        <div class="stat-label">Submissions</div>
+      </div>
+    </div>
+
+    <!-- Add Question -->
+    <div class="admin-section">
+      <h3>➕ Add New Question</h3>
+      {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
+      {% if error %}<p class="error-msg">{{ error }}</p>{% endif %}
+      <form method="POST" autocomplete="off">
+        <label>Question Type</label>
+        <select name="qtype" id="qtype" onchange="toggleOptions(this.value)">
+          <option value="mcq">Multiple Choice (MCQ)</option>
+          <option value="truefalse">True/False</option>
+          <option value="essay">Essay</option>
+          <option value="descriptive">Descriptive</option>
+          <option value="short_answer">Short Answer</option>
+        </select>
+        <label>Question Text</label>
+        <input name="q" placeholder="Enter question text..." required/>
+        <div id="mcq-options">
+          <div class="options-grid">
+            <div><label>Option A</label><input name="a" placeholder="Option A"/></div>
+            <div><label>Option B</label><input name="b" placeholder="Option B"/></div>
+            <div><label>Option C</label><input name="c" placeholder="Option C"/></div>
+            <div><label>Option D</label><input name="d" placeholder="Option D"/></div>
+          </div>
+          <br/>
+          <label>Correct Option</label>
+          <select name="correct">
+            <option value="" disabled selected>-- Correct Option --</option>
+            <option value="A">A</option><option value="B">B</option>
+            <option value="C">C</option><option value="D">D</option>
+          </select>
+        </div>
+        <div id="tf-options" style="display:none;">
+          <label>Correct Answer</label>
+          <select name="correct_tf">
+            <option value="" disabled selected>-- Correct Answer --</option>
+            <option value="A">True (A)</option>
+            <option value="B">False (B)</option>
+          </select>
+        </div>
+        <div class="options-grid" style="margin-top:4px;">
+          <div><label>Subject</label><input name="subject" placeholder="e.g. Web Development"/></div>
+          <div><label>Topic</label><input name="topic" placeholder="e.g. HTML Basics"/></div>
+        </div>
+        <label>Difficulty</label>
+        <select name="difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+        <br/>
+        <button type="submit">Add Question</button>
+      </form>
+    </div>
+
+    <!-- Pending Manual Grading -->
+    {% if pending_grading %}
+    <div class="admin-section" style="border-left:3px solid var(--warning);">
+      <h3>⏳ Pending Manual Grading <span style="background:var(--warning);color:#0f1117;border-radius:20px;padding:2px 10px;font-size:12px;margin-left:8px;">{{ pending_grading|length }}</span></h3>
+      <table>
+        <thead><tr><th>#</th><th>Candidate</th><th>Date</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for r in pending_grading %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ r.username }}</td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ r.timestamp.strftime('%Y-%m-%d %H:%M') if r.timestamp else '—' }}</td>
+            <td><a href="/admin/grade/{{ r._id }}"><button style="padding:5px 12px;font-size:12px;">✏️ Grade</button></a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <!-- Send Notification -->
+    <div class="admin-section">
+      <h3>🔔 Send Notification</h3>
+      <form method="POST" action="/admin/notify">
+        <div class="options-grid">
+          <div><label>Message</label><input name="message" placeholder="Notification message" required/></div>
+          <div>
+            <label>Type</label>
+            <select name="ntype">
+              <option value="general">General</option>
+              <option value="exam_reminder">Exam Reminder</option>
+              <option value="result">Result Published</option>
+            </select>
+          </div>
+        </div>
+        <label>Target Username <span style="color:var(--text-muted);font-size:11px;">("all" for everyone)</span></label>
+        <input name="target" value="all"/>
+        <br/>
+        <button type="submit">Send</button>
+      </form>
+    </div>
+
+    <!-- Enroll Candidate -->
+    <div class="admin-section">
+      <h3>🎯 Enroll Candidate into Closed Exam</h3>
+      <form method="POST" action="/admin/enroll">
+        <div class="options-grid">
+          <div>
+            <label>Exam</label>
+            <select name="exam_id">
+              {% for e in exams %}
+              <option value="{{ e._id }}">{{ e.title }} ({{ e.enrollment_type }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Candidate Username</label>
+            <input name="username" placeholder="Username to enroll"/>
+          </div>
+        </div>
+        <br/>
+        <button type="submit">Enroll</button>
+      </form>
+    </div>
+
+    <!-- Exams List -->
+    <div class="admin-section">
+      <h3>📅 Exams ({{ exams|length }})</h3>
+      {% if exams %}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Duration</th><th>Start</th><th>End</th><th>Enrollment</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for e in exams %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td><b>{{ e.title }}</b></td>
+              <td style="font-family:var(--mono);">{{ e.duration_minutes }} min</td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ e.start_time.strftime('%Y-%m-%d %H:%M') if e.start_time else 'Anytime' }}</td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ e.end_time.strftime('%Y-%m-%d %H:%M') if e.end_time else 'No End' }}</td>
+              <td>
+                {% if e.enrollment_type == 'open' %}
+                  <span style="color:var(--accent2);font-size:12px;">● Open</span>
+                {% else %}
+                  <span style="color:var(--warning);font-size:12px;">● Closed</span>
+                {% endif %}
+              </td>
+              <td><span style="font-size:12px;">{{ e.status | capitalize }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);">No exams created yet. <a href="/admin/create_exam">Create one</a>.</p>
+      {% endif %}
+    </div>
+
+    <!-- Questions List -->
+    <div class="admin-section">
+      <h3>📋 All Questions ({{ questions|length }})</h3>
+      {% if questions %}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>#</th><th>Question</th><th>Type</th><th>Subject</th><th>Difficulty</th><th>Answer</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for q in questions %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ q[1][:55] }}{% if q[1]|length > 55 %}…{% endif %}</td>
+              <td><span style="font-size:11px;background:var(--surface);border:1px solid var(--border);padding:2px 7px;border-radius:5px;font-family:var(--mono);">{{ q[7] if q|length > 7 else 'mcq' }}</span></td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ q[8] if q|length > 8 else '' }}</td>
+              <td>
+                {% set diff = q[10] if q|length > 10 else 'medium' %}
+                <span style="font-size:11px;color:{{ 'var(--accent2)' if diff == 'easy' else 'var(--warning)' if diff == 'medium' else 'var(--danger)' }};">{{ diff | capitalize }}</span>
+              </td>
+              <td style="font-family:var(--mono);font-weight:700;">{{ q[6] or '—' }}</td>
+              <td>
+                <form method="POST" action="/delete_question/{{ q[0] }}" onsubmit="return confirm('Delete this question?');">
+                  <button class="btn-danger" type="submit">🗑</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);">No questions added yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Registered Users -->
+    <div class="admin-section">
+      <h3>👥 Registered Users ({{ users|length }})</h3>
+      {% if users %}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>#</th><th>Username</th><th>Email</th><th>Role</th><th>Registered</th></tr></thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td><b>{{ u.username }}</b></td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ u.email }}</td>
+              <td><span style="font-size:12px;color:var(--accent);">{{ u.role | capitalize }}</span></td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);">No registered users yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Results -->
+    <div class="admin-section">
+      <h3>📊 Student Results ({{ results|length }})</h3>
+      {% if results %}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>#</th><th>Username</th><th>Score</th><th>Total</th><th>%</th><th>Date (UTC)</th><th>IP</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for r in results %}
+            {% set pct = ((r.score / r.total) * 100) | round(1) if r.get('total', 0) > 0 else 0 %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td><b>{{ r.username }}</b></td>
+              <td style="font-family:var(--mono);">{{ r.score }}</td>
+              <td style="font-family:var(--mono);">{{ r.get('total', '—') }}</td>
+              <td style="font-family:var(--mono);color:{{ 'var(--accent2)' if pct >= 50 else 'var(--danger)' }};">{{ pct }}%</td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ r.get('timestamp', '—') }}</td>
+              <td style="font-size:11px;color:var(--text-muted);font-family:var(--mono);">{{ r.get('ip', '—') }}</td>
+              <td>{% if r.get('pending_grading') %}<span style="color:var(--warning);font-size:12px;">⏳ Pending</span>{% else %}<span style="color:var(--accent2);font-size:12px;">✅</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);">No results yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Security Logs -->
+    <div class="admin-section">
+      <h3>🔍 Security & Activity Logs <span style="color:var(--text-muted);font-size:12px;font-weight:400;">(Last 50)</span></h3>
+      {% if logs %}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>#</th><th>Username</th><th>Activity</th><th>IP</th><th>Timestamp (UTC)</th></tr></thead>
+          <tbody>
+            {% for l in logs %}
+            <tr style="{% if 'Multiple Login' in l.activity %}background:rgba(255,92,114,.06);{% elif 'Tab Switch' in l.activity or 'Copy' in l.activity %}background:rgba(245,166,35,.06);{% endif %}">
+              <td>{{ loop.index }}</td>
+              <td>{{ l.username }}</td>
+              <td>
+                {% if 'Multiple Login' in l.activity %}
+                  <span style="color:var(--danger);">{{ l.activity }}</span>
+                {% elif 'Tab Switch' in l.activity or 'Copy' in l.activity %}
+                  <span style="color:var(--warning);">{{ l.activity }}</span>
+                {% else %}
+                  {{ l.activity }}
+                {% endif %}
+              </td>
+              <td style="font-size:11px;font-family:var(--mono);color:var(--text-muted);">{{ l.get('ip', '—') }}</td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ l.timestamp }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);">No activity logged yet.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <script>
+  function toggleOptions(type){
+    var mcq=document.getElementById("mcq-options");
+    var tf=document.getElementById("tf-options");
+    if(type==="mcq"){mcq.style.display="block";tf.style.display="none";}
+    else if(type==="truefalse"){mcq.style.display="none";tf.style.display="block";}
+    else{mcq.style.display="none";tf.style.display="none";}
+  }
+  document.getElementById("qtype").addEventListener("change",function(){ toggleOptions(this.value); });
+  document.querySelector("form").addEventListener("submit",function(){
+    var qtype=document.getElementById("qtype").value;
+    if(qtype==="truefalse"){
+      var tfSel=document.querySelector("[name='correct_tf']");
+      var correct=document.querySelector("[name='correct']");
+      if(tfSel&&correct) correct.value=tfSel.value;
+    }
+  });
+  </script>
+
+<script>
+// Ripple effect on buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var r = document.createElement('span');
+  r.classList.add('ripple');
+  var rect = btn.getBoundingClientRect();
+  var size = Math.max(rect.width, rect.height) * 2;
+  r.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size/2) + 'px;top:' + (e.clientY - rect.top - size/2) + 'px;';
+  btn.appendChild(r);
+  setTimeout(function() { r.remove(); }, 500);
+});
+// Smooth page-out on link navigation
+document.querySelectorAll('a[href]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript') || href.startsWith('mailto')) return;
+    e.preventDefault();
+    document.body.style.transition = 'opacity .25s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function() { window.location.href = href; }, 240);
+  });
+});
+</script>
+</body>
+</html>

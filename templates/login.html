@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login | Exammettl</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}"/>
+</head>
+<body>
+  <div class="login-box">
+    <div class="brand-logo" style="font-size:1.8rem;margin-bottom:8px;display:flex;justify-content:center;">Exammettl</div>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:24px;">Online Examination Platform</p>
+    {% if msg %}<p class="success-msg">{{ msg }}</p>{% endif %}
+    {% if error %}<p class="error-msg">{{ error }}</p>{% endif %}
+    <form method="POST" autocomplete="off">
+      <input type="text" name="username" placeholder="Username" required maxlength="50"/>
+      <input type="password" name="password" placeholder="Password" required/>
+      <br/>
+      <button type="submit" style="width:100%;margin-top:4px;">Login →</button>
+    </form>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:18px;">
+      <a href="/forgot_password">Forgot Password?</a> &nbsp;·&nbsp;
+      <a href="/register">Create Account</a>
+    </p>
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0;"/>
+    <a href="/admin_login"><button class="btn-secondary" style="width:100%;">🔐 Admin Login</button></a>
+  </div>
+
+<script>
+// Ripple effect on buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var r = document.createElement('span');
+  r.classList.add('ripple');
+  var rect = btn.getBoundingClientRect();
+  var size = Math.max(rect.width, rect.height) * 2;
+  r.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size/2) + 'px;top:' + (e.clientY - rect.top - size/2) + 'px;';
+  btn.appendChild(r);
+  setTimeout(function() { r.remove(); }, 500);
+});
+// Smooth page-out on link navigation
+document.querySelectorAll('a[href]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript') || href.startsWith('mailto')) return;
+    e.preventDefault();
+    document.body.style.transition = 'opacity .25s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function() { window.location.href = href; }, 240);
+  });
+});
+</script>
+</body>
+</html>

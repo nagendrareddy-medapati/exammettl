@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Your Result | Exammettl</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}"/>
+</head>
+<body>
+  <div class="result-box">
+    <div class="brand-logo" style="justify-content:center;margin-bottom:10px;">Exammettl</div>
+    <h2>🎉 Exam Result</h2>
+    {% set percentage = ((score / total) * 100) | round(1) if total > 0 else 0 %}
+    {% set grade = 'A' if percentage >= 80 else 'B' if percentage >= 65 else 'C' if percentage >= 50 else 'F' %}
+
+    <div class="score-display">
+      <span class="score-number">{{ score }}</span>
+      <span class="score-total"> / {{ total }}</span>
+    </div>
+
+    <div style="margin:12px 0;">
+      <span class="grade-badge" style="font-size:22px;padding:6px 24px;background:{{ 'var(--accent2)' if grade == 'A' else 'var(--accent)' if grade == 'B' else 'var(--warning)' if grade == 'C' else 'var(--danger)' }};color:{{ '#0f1117' if grade == 'A' else 'white' }};">
+        Grade {{ grade }}
+      </span>
+    </div>
+
+    <p class="percentage">
+      {% if percentage >= 50 %}
+        ✅ <strong>{{ percentage }}%</strong> —
+        {% if percentage >= 80 %}Excellent!{% elif percentage >= 65 %}Good Job!{% else %}Pass{% endif %}
+      {% else %}
+        ❌ <strong>{{ percentage }}%</strong> — Better luck next time!
+      {% endif %}
+    </p>
+
+    <p style="color:var(--text-muted);font-size:12px;font-family:var(--mono);">Negative marking: −0.25 per wrong answer</p>
+    <br/>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <a href="/score_report"><button style="background:var(--accent);width:100%;">📊 Download Score Report (PDF)</button></a>
+      {% if percentage >= 50 %}
+      <a href="/certificate"><button style="width:100%;">📄 Download Certificate</button></a>
+      {% endif %}
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <a href="/dashboard" style="flex:1;"><button class="btn-secondary" style="width:100%;">← Dashboard</button></a>
+        <a href="/logout" style="flex:1;"><button class="btn-secondary" style="width:100%;">Logout</button></a>
+      </div>
+    </div>
+  </div>
+
+<script>
+// Ripple effect on buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var r = document.createElement('span');
+  r.classList.add('ripple');
+  var rect = btn.getBoundingClientRect();
+  var size = Math.max(rect.width, rect.height) * 2;
+  r.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size/2) + 'px;top:' + (e.clientY - rect.top - size/2) + 'px;';
+  btn.appendChild(r);
+  setTimeout(function() { r.remove(); }, 500);
+});
+// Smooth page-out on link navigation
+document.querySelectorAll('a[href]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript') || href.startsWith('mailto')) return;
+    e.preventDefault();
+    document.body.style.transition = 'opacity .25s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function() { window.location.href = href; }, 240);
+  });
+});
+</script>
+</body>
+</html>

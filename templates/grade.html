@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manual Grading | Exammettl Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}"/>
+</head>
+<body>
+  <div class="container">
+    <div style="text-align:right;margin-bottom:-8px;"><span class="brand-logo" style="font-size:.85rem;">Exammettl</span></div>
+    <div class="page-header">
+      <h2>✏️ Manual Grading</h2>
+      <a href="/admin"><button class="btn-secondary">← Back</button></a>
+    </div>
+    <div class="admin-section" style="background:rgba(108,99,255,.08);border-color:var(--accent);">
+      <p style="margin:0;"><b>Candidate:</b> {{ result.username }} &nbsp;·&nbsp; <b>Auto Score:</b> <span style="font-family:var(--mono);">{{ result.score }} / {{ result.total }}</span></p>
+    </div>
+    {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
+    <form method="POST">
+      {% for sa in result.subjective_answers %}
+      <div class="admin-section">
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:4px;">Question</p>
+        <p style="margin:0 0 10px;"><b>{{ sa.question }}</b></p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Answer</p>
+        <p style="background:var(--bg);padding:14px;border-radius:var(--radius-sm);white-space:pre-wrap;font-size:14px;border:1px solid var(--border);margin:0 0 12px;">{{ sa.answer or '(No answer provided)' }}</p>
+        <label>Award Score (0 – 1)</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="number" name="score_{{ sa.qid }}" min="0" max="1" step="0.25"
+                 value="{{ sa.score if sa.score is not none else '' }}"
+                 style="width:100px;"/>
+          {% if sa.graded %}<span style="color:var(--accent2);font-size:13px;">✓ Already Graded</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      <br/>
+      <button type="submit">💾 Save Grades</button>
+    </form>
+  </div>
+
+<script>
+// Ripple effect on buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var r = document.createElement('span');
+  r.classList.add('ripple');
+  var rect = btn.getBoundingClientRect();
+  var size = Math.max(rect.width, rect.height) * 2;
+  r.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size/2) + 'px;top:' + (e.clientY - rect.top - size/2) + 'px;';
+  btn.appendChild(r);
+  setTimeout(function() { r.remove(); }, 500);
+});
+// Smooth page-out on link navigation
+document.querySelectorAll('a[href]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript') || href.startsWith('mailto')) return;
+    e.preventDefault();
+    document.body.style.transition = 'opacity .25s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function() { window.location.href = href; }, 240);
+  });
+});
+</script>
+</body>
+</html>

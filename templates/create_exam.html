@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Create Exam | Exammettl Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}"/>
+</head>
+<body>
+  <div class="container" style="max-width:620px;">
+    <div class="page-header">
+      <h2>📅 Create New Exam</h2>
+      <a href="/admin"><button class="btn-secondary">← Admin</button></a>
+    </div>
+    {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
+    {% if error %}<p class="error-msg">{{ error }}</p>{% endif %}
+    <form method="POST">
+      <label>Exam Title *</label>
+      <input type="text" name="title" placeholder="e.g. Web Development Mid-Term" required/>
+      <label>Duration (minutes)</label>
+      <input type="number" name="duration" value="10" min="1" required/>
+      <div class="options-grid">
+        <div>
+          <label>Start Time</label>
+          <input type="datetime-local" name="start_time"/>
+        </div>
+        <div>
+          <label>End Time</label>
+          <input type="datetime-local" name="end_time"/>
+        </div>
+      </div>
+      <label>Enrollment Type</label>
+      <select name="enrollment_type">
+        <option value="open">Open — anyone can take</option>
+        <option value="closed">Closed — enrolled candidates only</option>
+      </select>
+      <div class="options-grid">
+        <div>
+          <label>Filter by Subject <span style="color:var(--text-muted);font-size:11px;">(optional)</span></label>
+          <input type="text" name="subject_filter" placeholder="e.g. Web Development"/>
+        </div>
+        <div>
+          <label>Filter by Difficulty</label>
+          <select name="difficulty_filter">
+            <option value="">All Difficulties</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+      </div>
+      <br/>
+      <button type="submit" style="width:100%;">Create Exam</button>
+    </form>
+  </div>
+
+<script>
+// Ripple effect on buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var r = document.createElement('span');
+  r.classList.add('ripple');
+  var rect = btn.getBoundingClientRect();
+  var size = Math.max(rect.width, rect.height) * 2;
+  r.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size/2) + 'px;top:' + (e.clientY - rect.top - size/2) + 'px;';
+  btn.appendChild(r);
+  setTimeout(function() { r.remove(); }, 500);
+});
+// Smooth page-out on link navigation
+document.querySelectorAll('a[href]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript') || href.startsWith('mailto')) return;
+    e.preventDefault();
+    document.body.style.transition = 'opacity .25s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function() { window.location.href = href; }, 240);
+  });
+});
+</script>
+</body>
+</html>

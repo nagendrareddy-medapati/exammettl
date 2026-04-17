@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard | Exammettl</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}"/>
+</head>
+<body>
+  <div class="container">
+    <div style="text-align:right;margin-bottom:-8px;"><span class="brand-logo" style="font-size:.85rem;">Exammettl</span></div>
+    <div class="page-header">
+      <h2>🏠 Dashboard</h2>
+      <div class="actions">
+        <a href="/profile"><button class="btn-secondary">👤 Profile</button></a>
+        <a href="/score_report"><button class="btn-secondary">📊 Score Report</button></a>
+        <a href="/logout"><button class="btn-secondary">Logout</button></a>
+      </div>
+    </div>
+
+    <!-- Quick stats -->
+    {% if results %}
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-num">{{ results|length }}</div>
+        <div class="stat-label">Exams Taken</div>
+      </div>
+      <div class="stat-card">
+        {% set best = namespace(val=0) %}
+        {% for r in results %}{% set pct = ((r.score / r.total)*100)|round(1) if r.total > 0 else 0 %}{% if pct > best.val %}{% set best.val = pct %}{% endif %}{% endfor %}
+        <div class="stat-num" style="color:var(--accent2);">{{ best.val }}%</div>
+        <div class="stat-label">Best Score</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">{{ exams|length }}</div>
+        <div class="stat-label">Available Exams</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Notifications -->
+    {% if notifications %}
+    <div class="admin-section" style="background:rgba(245,166,35,.08);border-left:3px solid var(--warning);border-radius:0 var(--radius) var(--radius) 0;">
+      <h3>🔔 Notifications</h3>
+      {% for n in notifications %}
+      <div class="notif-bar">
+        {% if n.type == 'exam_reminder' %}📅{% elif n.type == 'result' %}📢{% else %}📌{% endif %}
+        {{ n.message }}
+        <span style="font-size:11px;color:var(--text-muted);float:right;"> {{ n.created_at.strftime('%d %b %Y') if n.created_at else '' }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Available Exams -->
+    <div class="admin-section">
+      <h3>📋 Available Exams</h3>
+      {% if exams %}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>#</th><th>Exam Title</th><th>Duration</th><th>Enrollment</th><th>Start Time</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for e in exams %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td><b>{{ e.title }}</b></td>
+              <td style="font-family:var(--mono);">{{ e.duration_minutes }} min</td>
+              <td>
+                {% if e.enrollment_type == 'open' %}
+                  <span style="color:var(--accent2);font-size:12px;">● Open</span>
+                {% else %}
+                  <span style="color:var(--warning);font-size:12px;">● Closed</span>
+                {% endif %}
+              </td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ e.start_time.strftime('%Y-%m-%d %H:%M') if e.start_time else 'Anytime' }}</td>
+              <td><a href="/exam/{{ e._id }}"><button style="padding:6px 14px;font-size:12px;">Start →</button></a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);">No exams available right now.</p>
+      <a href="/exam"><button>📝 Take General Exam</button></a>
+      {% endif %}
+    </div>
+
+    <!-- Past Results -->
+    <div class="admin-section">
+      <h3>📈 My Results</h3>
+      {% if results %}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>#</th><th>Score</th><th>Total</th><th>%</th><th>Grade</th><th>Date</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for r in results %}
+            {% set pct = ((r.score / r.total) * 100) | round(1) if r.total > 0 else 0 %}
+            {% set grade = 'A' if pct >= 80 else 'B' if pct >= 65 else 'C' if pct >= 50 else 'F' %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td style="font-family:var(--mono);">{{ r.score }}</td>
+              <td style="font-family:var(--mono);">{{ r.total }}</td>
+              <td style="font-family:var(--mono);">{{ pct }}%</td>
+              <td>
+                <span class="grade-badge" style="background:{{ 'var(--accent2)' if grade == 'A' else 'var(--accent)' if grade == 'B' else 'var(--warning)' if grade == 'C' else 'var(--danger)' }};color:{{ '#0f1117' if grade == 'A' else 'white' }};">{{ grade }}</span>
+              </td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ r.timestamp.strftime('%Y-%m-%d') if r.timestamp else '—' }}</td>
+              <td>{% if r.get('pending_grading') %}<span style="color:var(--warning);font-size:12px;">⏳ Pending</span>{% else %}<span style="color:var(--accent2);font-size:12px;">✅ Complete</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);">No results yet. Take an exam to see your scores here.</p>
+      {% endif %}
+    </div>
+  </div>
+
+<script>
+// Ripple effect on buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var r = document.createElement('span');
+  r.classList.add('ripple');
+  var rect = btn.getBoundingClientRect();
+  var size = Math.max(rect.width, rect.height) * 2;
+  r.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size/2) + 'px;top:' + (e.clientY - rect.top - size/2) + 'px;';
+  btn.appendChild(r);
+  setTimeout(function() { r.remove(); }, 500);
+});
+// Smooth page-out on link navigation
+document.querySelectorAll('a[href]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript') || href.startsWith('mailto')) return;
+    e.preventDefault();
+    document.body.style.transition = 'opacity .25s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function() { window.location.href = href; }, 240);
+  });
+});
+</script>
+</body>
+</html>
