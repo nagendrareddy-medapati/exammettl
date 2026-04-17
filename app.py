@@ -3,7 +3,7 @@ import random
 import io
 import hashlib
 import secrets
-from flask import Flask, render_template, request, redirect, session, send_file, jsonify
+from flask import Flask, render_template, request, redirect, session, send_file, jsonify, make_response
 import pandas as pd
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
@@ -18,6 +18,10 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "exam_secret_key_change_in_prod")
+
+@app.route('/favicon.ico')
+def favicon():
+    return make_response('', 204)
 
 MONGO_URI = os.environ.get("MONGO_URI", "")
 _mongo_client = None
