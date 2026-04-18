@@ -163,7 +163,7 @@
       {% if exams %}
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>#</th><th>Title</th><th>Duration</th><th>Start</th><th>End</th><th>Enrollment</th><th>Status</th></tr></thead>
+          <thead><tr><th>#</th><th>Title</th><th>Duration</th><th>Start</th><th>End</th><th>Enrollment</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>
             {% for e in exams %}
             <tr>
@@ -180,6 +180,11 @@
                 {% endif %}
               </td>
               <td><span style="font-size:12px;">{{ e.status | capitalize }}</span></td>
+              <td>
+                <form method="POST" action="/admin/delete_exam/{{ e._id }}" onsubmit="return confirm('Delete exam \'{{ e.title }}\' and all its results? This cannot be undone.');">
+                  <button class="btn-danger" type="submit" style="padding:5px 12px;font-size:12px;">🗑 Delete</button>
+                </form>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -230,7 +235,7 @@
       {% if users %}
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>#</th><th>Username</th><th>Email</th><th>Role</th><th>Registered</th></tr></thead>
+          <thead><tr><th>#</th><th>Username</th><th>Email</th><th>Role</th><th>Registered</th><th>Action</th></tr></thead>
           <tbody>
             {% for u in users %}
             <tr>
@@ -239,6 +244,11 @@
               <td style="font-size:12px;color:var(--text-muted);">{{ u.email }}</td>
               <td><span style="font-size:12px;color:var(--accent);">{{ u.role | capitalize }}</span></td>
               <td style="font-size:12px;color:var(--text-muted);">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+              <td>
+                <form method="POST" action="/admin/delete_student/{{ u.username }}" onsubmit="return confirm('Delete student \'{{ u.username }}\' and ALL their data (results, logs, sessions)? This cannot be undone.');">
+                  <button class="btn-danger" type="submit" style="padding:5px 12px;font-size:12px;">🗑 Delete</button>
+                </form>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -255,7 +265,7 @@
       {% if results %}
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>#</th><th>Username</th><th>Score</th><th>Total</th><th>%</th><th>Date (UTC)</th><th>IP</th><th>Status</th></tr></thead>
+          <thead><tr><th>#</th><th>Username</th><th>Score</th><th>Total</th><th>%</th><th>Date (IST)</th><th>IP</th><th>Status</th></tr></thead>
           <tbody>
             {% for r in results %}
             {% set pct = ((r.score / r.total) * 100) | round(1) if r.get('total', 0) > 0 else 0 %}
@@ -284,7 +294,7 @@
       {% if logs %}
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>#</th><th>Username</th><th>Activity</th><th>IP</th><th>Timestamp (UTC)</th></tr></thead>
+          <thead><tr><th>#</th><th>Username</th><th>Activity</th><th>IP</th><th>Timestamp (IST)</th></tr></thead>
           <tbody>
             {% for l in logs %}
             <tr style="{% if 'Multiple Login' in l.activity %}background:rgba(255,92,114,.06);{% elif 'Tab Switch' in l.activity or 'Copy' in l.activity %}background:rgba(245,166,35,.06);{% endif %}">

@@ -608,6 +608,39 @@ def delete_question(qid):
         pass
     return redirect("/admin")
 
+# ── DELETE EXAM ───────────────────────────────────────────────────────────────────
+@app.route("/admin/delete_exam/<exam_id>", methods=["POST"])
+def delete_exam(exam_id):
+    if "admin" not in session:
+        return redirect("/admin_login")
+    db = get_db()
+    try:
+        db.exams.delete_one({"_id": ObjectId(exam_id)})
+        # Also remove all enrollments and results linked to this exam
+        db.enrollments.delete_many({"exam_id": exam_id})
+        db.results.delete_many({"exam_id": exam_id})
+    except Exception:
+        pass
+    return redirect("/admin")
+
+# ── DELETE STUDENT ────────────────────────────────────────────────────────────────
+@app.route("/admin/delete_student/<username>", methods=["POST"])
+def delete_student(username):
+    if "admin" not in session:
+        return redirect("/admin_login")
+    db = get_db()
+    try:
+        db.users.delete_one({"username": username})
+        # Also remove all related data for this student
+        db.results.delete_many({"username": username})
+        db.active_sessions.delete_many({"username": username})
+        db.enrollments.delete_many({"username": username})
+        db.logs.delete_many({"username": username})
+        db.autosave.delete_many({"username": username})
+    except Exception:
+        pass
+    return redirect("/admin")
+
 # ── EXPORT EXCEL ──────────────────────────────────────────────────────────────────
 @app.route("/export")
 def export():
