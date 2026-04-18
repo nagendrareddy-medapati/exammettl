@@ -99,19 +99,30 @@ h3{
 
 /* ── Input Fields ───────────────────────────────────────────────────────────── */
 input[type="text"],input[type="password"],input[type="email"],
-input[type="number"],input[type="datetime-local"],select,textarea{
+input[type="number"],input[type="datetime-local"],
+input:not([type]),select,textarea{
   width:100%;padding:11px 14px;margin:4px 0 12px;
   border-radius:var(--radius-sm);
   border:1px solid var(--border);
   font-size:14px;font-family:var(--font);
-  background:var(--bg);color:var(--text);
+  background:var(--surface) !important;color:var(--text) !important;
+  -webkit-text-fill-color:var(--text);
   transition:border var(--t),box-shadow var(--t),background var(--t),transform var(--t);
   outline:none;appearance:none;-webkit-appearance:none;
+}
+/* Override browser autofill white background */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 40px var(--surface) inset !important;
+  -webkit-text-fill-color: var(--text) !important;
+  caret-color: var(--text);
 }
 input:focus,select:focus,textarea:focus{
   border-color:var(--accent);
   box-shadow:0 0 0 3px rgba(108,99,255,.2);
-  background:rgba(108,99,255,.04);
+  background:rgba(108,99,255,.08) !important;
   transform:translateY(-1px);
 }
 input::placeholder,textarea::placeholder{color:var(--text-muted);}
