@@ -3,6 +3,9 @@ import random
 import io
 import hashlib
 import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, make_response
 import pandas as pd
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -11,8 +14,15 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
+
+# IST = UTC+5:30
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def now_ist():
+    """Return current datetime in IST."""
+    return datetime.now(IST)
 
 load_dotenv()
 
@@ -22,6 +32,63 @@ app.secret_key = os.environ.get("SECRET_KEY", "exam_secret_key_change_in_prod")
 @app.route('/favicon.ico')
 def favicon():
     return make_response('', 204)
+
+def send_reset_email(to_email, reset_link):
+    """Send password reset email via SMTP. Reads config from environment variables."""
+    smtp_host   = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port   = int(os.environ.get("SMTP_PORT", 587))
+    smtp_user   = os.environ.get("SMTP_USER", "")
+    smtp_pass   = os.environ.get("SMTP_PASS", "")
+    from_name   = os.environ.get("SMTP_FROM_NAME", "Exammettl")
+    from_email  = os.environ.get("SMTP_FROM_EMAIL", smtp_user)
+
+    if not smtp_user or not smtp_pass:
+        raise RuntimeError("SMTP_USER and SMTP_PASS must be set in .env to send emails.")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Reset Your Exammettl Password"
+    msg["From"]    = f"{from_name} <{from_email}>"
+    msg["To"]      = to_email
+
+    text_body = f"""\
+Hi,
+
+You requested a password reset for your Exammettl account.
+
+Click the link below to set a new password (valid for 1 hour):
+{reset_link}
+
+If you did not request this, you can safely ignore this email.
+
+— The Exammettl Team
+"""
+    html_body = f"""\
+<html><body style="font-family:sans-serif;color:#222;">
+  <h2 style="color:#3498db;">🔑 Password Reset Request</h2>
+  <p>You requested a password reset for your <b>Exammettl</b> account.</p>
+  <p>
+    <a href="{reset_link}"
+       style="display:inline-block;padding:10px 22px;background:#3498db;color:#fff;
+              border-radius:6px;text-decoration:none;font-weight:bold;">
+      Reset My Password
+    </a>
+  </p>
+  <p style="font-size:13px;color:#666;">
+    This link is valid for <b>1 hour</b>.<br>
+    If you did not request this, you can safely ignore this email.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;"/>
+  <p style="font-size:12px;color:#aaa;">— The Exammettl Team</p>
+</body></html>
+"""
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.ehlo()
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(from_email, to_email, msg.as_string())
 
 MONGO_URI = os.environ.get("MONGO_URI", "")
 _mongo_client = None
@@ -126,7 +193,7 @@ def register():
                 db.users.insert_one({
                     "username": username, "email": email,
                     "password": hash_password(password), "role": role,
-                    "created_at": datetime.utcnow(), "reset_token": None,
+                    "created_at": now_ist(), "reset_token": None,
                     "profile": {"full_name": username, "bio": ""}
                 })
                 success = "Registration successful! You can now login."
@@ -144,9 +211,15 @@ def forgot_password():
             token = secrets.token_urlsafe(32)
             db.users.update_one({"email": email}, {"$set": {
                 "reset_token": token,
-                "reset_token_expires": datetime.utcnow() + timedelta(hours=1)
+                "reset_token_expires": now_ist() + timedelta(hours=1)
             }})
-            success = f"Reset link (dev): /reset_password/{token}"
+            base_url = os.environ.get("BASE_URL", request.host_url.rstrip("/"))
+            reset_link = f"{base_url}/reset_password/{token}"
+            try:
+                send_reset_email(email, reset_link)
+                success = "A password reset link has been sent to your email. Please check your inbox (and spam folder)."
+            except Exception as e:
+                error = f"Could not send reset email: {str(e)}"
         else:
             error = "No account found with that email."
     return render_template("forgot_password.html", error=error, success=success)
@@ -154,7 +227,7 @@ def forgot_password():
 @app.route("/reset_password/<token>", methods=["GET", "POST"])
 def reset_password(token):
     db = get_db()
-    user = db.users.find_one({"reset_token": token, "reset_token_expires": {"$gt": datetime.utcnow()}})
+    user = db.users.find_one({"reset_token": token, "reset_token_expires": {"$gt": now_ist()}})
     error = None
     if not user:
         return render_template("forgot_password.html", error="Invalid or expired link.", success=None)
@@ -208,16 +281,16 @@ def login():
             existing = db.active_sessions.find_one({"username": username})
             if existing and existing.get("ip") != client_ip:
                 db.logs.insert_one({"username": username, "activity": "Multiple Login Attempt",
-                                    "ip": client_ip, "timestamp": datetime.utcnow()})
+                                    "ip": client_ip, "timestamp": now_ist()})
             user = db.users.find_one({"username": username})
             if user and verify_password(user["password"], password):
                 session.clear()
                 session["user"] = username
                 session["role"] = user.get("role", "candidate")
                 db.active_sessions.update_one({"username": username},
-                    {"$set": {"username": username, "ip": client_ip, "last_seen": datetime.utcnow()}}, upsert=True)
+                    {"$set": {"username": username, "ip": client_ip, "last_seen": now_ist()}}, upsert=True)
                 db.logs.insert_one({"username": username, "activity": "Login",
-                                    "ip": client_ip, "timestamp": datetime.utcnow()})
+                                    "ip": client_ip, "timestamp": now_ist()})
                 return redirect("/dashboard")
             error = "Invalid username or password."
     return render_template("login.html", error=error, msg=msg)
@@ -253,11 +326,16 @@ def exam(exam_id=None):
         if not enrolled:
             return render_template("exam.html", questions=[], error="You are not enrolled in this exam.")
     if exam_doc:
-        now = datetime.utcnow()
+        now = now_ist()
         start = exam_doc.get("start_time")
         end   = exam_doc.get("end_time")
+        # Make stored datetimes timezone-aware if they are naive
+        if start and start.tzinfo is None:
+            start = start.replace(tzinfo=IST)
+        if end and end.tzinfo is None:
+            end = end.replace(tzinfo=IST)
         if start and now < start:
-            return render_template("exam.html", questions=[], error=f"Exam starts at {start.strftime('%Y-%m-%d %H:%M UTC')}.")
+            return render_template("exam.html", questions=[], error=f"Exam starts at {start.strftime('%Y-%m-%d %H:%M IST')}.")
         if end and now > end:
             return render_template("exam.html", questions=[], error="This exam has ended.")
     duration_seconds = (exam_doc.get("duration_minutes", 10) * 60) if exam_doc else 600
@@ -293,7 +371,7 @@ def exam(exam_id=None):
                 subjective_answers.append({"qid": qid, "question": q[1], "answer": ans, "score": None, "graded": False})
         db.results.insert_one({
             "username": session["user"], "score": round(score, 2),
-            "total": len(questions), "timestamp": datetime.utcnow(),
+            "total": len(questions), "timestamp": now_ist(),
             "exam_id": exam_id, "details": details,
             "subjective_answers": subjective_answers,
             "pending_grading": len(subjective_answers) > 0,
@@ -313,7 +391,7 @@ def autosave():
     db = get_db()
     answers = request.get_json(force=True, silent=True) or {}
     db.autosave.update_one({"username": session["user"]},
-        {"$set": {"answers": answers, "saved_at": datetime.utcnow()}}, upsert=True)
+        {"$set": {"answers": answers, "saved_at": now_ist()}}, upsert=True)
     return jsonify({"status": "ok"})
 
 # ── RESULT ────────────────────────────────────────────────────────────────────────
@@ -347,7 +425,7 @@ def score_report():
         Paragraph("Score Report", styles["Title"]),
         Spacer(1, 12),
         Paragraph(f"Candidate: <b>{username}</b>", styles["Normal"]),
-        Paragraph(f"Generated: {datetime.utcnow().strftime('%d %B %Y, %H:%M UTC')}", styles["Normal"]),
+        Paragraph(f"Generated: {now_ist().strftime('%d %B %Y, %H:%M IST')}", styles["Normal"]),
         Spacer(1, 18),
     ]
     table_data = [["#", "Date", "Score", "Total", "Percentage", "Grade"]]
@@ -355,7 +433,7 @@ def score_report():
         total = r.get("total", 1); score = r.get("score", 0)
         pct = round((score / total) * 100, 1) if total > 0 else 0
         grade = "A" if pct >= 80 else "B" if pct >= 65 else "C" if pct >= 50 else "F"
-        ts = r.get("timestamp", datetime.utcnow()).strftime("%Y-%m-%d %H:%M")
+        ts = r.get("timestamp", now_ist()).strftime("%Y-%m-%d %H:%M")
         table_data.append([str(i), ts, str(score), str(total), f"{pct}%", grade])
     t = Table(table_data, colWidths=[30, 130, 60, 60, 80, 50])
     t.setStyle(TableStyle([
@@ -417,7 +495,7 @@ def admin():
                 "option_d": d if qtype == "mcq" else "",
                 "correct_option": correct if qtype not in ("essay","descriptive","short_answer") else "",
                 "subject": subject, "topic": topic, "difficulty": difficulty,
-                "created_at": datetime.utcnow(),
+                "created_at": now_ist(),
             })
             success = "Question added successfully!"
     questions = [doc_to_row(d) for d in db.questions.find()]
@@ -456,7 +534,7 @@ def create_exam():
                 "start_time": datetime.strptime(start_time, "%Y-%m-%dT%H:%M") if start_time else None,
                 "end_time": datetime.strptime(end_time, "%Y-%m-%dT%H:%M") if end_time else None,
                 "enrollment_type": enroll_type, "filters": filters,
-                "status": "active", "created_at": datetime.utcnow(),
+                "status": "active", "created_at": now_ist(),
             })
             success = "Exam created!"
     return render_template("create_exam.html", success=success, error=error)
@@ -471,7 +549,7 @@ def enroll_candidate():
     username = request.form.get("username", "").strip()
     if exam_id and username:
         db.enrollments.update_one({"exam_id": exam_id, "username": username},
-            {"$set": {"exam_id": exam_id, "username": username, "enrolled_at": datetime.utcnow()}}, upsert=True)
+            {"$set": {"exam_id": exam_id, "username": username, "enrolled_at": now_ist()}}, upsert=True)
     return redirect("/admin")
 
 # ── MANUAL GRADING ────────────────────────────────────────────────────────────────
@@ -514,7 +592,7 @@ def send_notification():
     if message:
         db.notifications.insert_one({
             "message": message, "target": target, "type": ntype,
-            "created_at": datetime.utcnow(), "created_by": session["admin"]
+            "created_at": now_ist(), "created_by": session["admin"]
         })
     return redirect("/admin")
 
@@ -526,6 +604,39 @@ def delete_question(qid):
     db = get_db()
     try:
         db.questions.delete_one({"_id": ObjectId(qid)})
+    except Exception:
+        pass
+    return redirect("/admin")
+
+# ── DELETE EXAM ───────────────────────────────────────────────────────────────────
+@app.route("/admin/delete_exam/<exam_id>", methods=["POST"])
+def delete_exam(exam_id):
+    if "admin" not in session:
+        return redirect("/admin_login")
+    db = get_db()
+    try:
+        db.exams.delete_one({"_id": ObjectId(exam_id)})
+        # Also remove all enrollments and results linked to this exam
+        db.enrollments.delete_many({"exam_id": exam_id})
+        db.results.delete_many({"exam_id": exam_id})
+    except Exception:
+        pass
+    return redirect("/admin")
+
+# ── DELETE STUDENT ────────────────────────────────────────────────────────────────
+@app.route("/admin/delete_student/<username>", methods=["POST"])
+def delete_student(username):
+    if "admin" not in session:
+        return redirect("/admin_login")
+    db = get_db()
+    try:
+        db.users.delete_one({"username": username})
+        # Also remove all related data for this student
+        db.results.delete_many({"username": username})
+        db.active_sessions.delete_many({"username": username})
+        db.enrollments.delete_many({"username": username})
+        db.logs.delete_many({"username": username})
+        db.autosave.delete_many({"username": username})
     except Exception:
         pass
     return redirect("/admin")
@@ -566,7 +677,7 @@ def certificate():
         Spacer(1, 12),
         Paragraph(f"Score Achieved: <b>{score}</b>", styles["Normal"]),
         Spacer(1, 12),
-        Paragraph(f"Date: {datetime.utcnow().strftime('%d %B %Y')}", styles["Normal"]),
+        Paragraph(f"Date: {now_ist().strftime('%d %B %Y')}", styles["Normal"]),
     ]
     pdf.build(content)
     output.seek(0)
@@ -581,7 +692,7 @@ def log():
     db = get_db()
     activity = request.form.get("activity", "unknown")
     db.logs.insert_one({"username": session["user"], "activity": activity,
-                        "ip": get_client_ip(), "timestamp": datetime.utcnow()})
+                        "ip": get_client_ip(), "timestamp": now_ist()})
     return "logged", 200
 
 # ── SESSION TIMEOUT ───────────────────────────────────────────────────────────────
@@ -593,7 +704,10 @@ def check_session_timeout():
         if last_active:
             try:
                 last_active_dt = datetime.fromisoformat(last_active)
-                if datetime.utcnow() - last_active_dt > timedelta(minutes=timeout):
+                # Make naive datetimes timezone-aware (IST) for comparison
+                if last_active_dt.tzinfo is None:
+                    last_active_dt = last_active_dt.replace(tzinfo=IST)
+                if now_ist() - last_active_dt > timedelta(minutes=timeout):
                     try:
                         db = get_db()
                         db.active_sessions.delete_one({"username": session.get("user")})
@@ -603,7 +717,7 @@ def check_session_timeout():
                     return redirect("/?msg=Session+expired.+Please+login+again.")
             except Exception:
                 pass
-        session["last_active"] = datetime.utcnow().isoformat()
+        session["last_active"] = now_ist().isoformat()
 
 # ── LOGOUT ────────────────────────────────────────────────────────────────────────
 @app.route("/logout")
