@@ -29,6 +29,76 @@
   </div>
 
 <script>
+
+// ── Custom Dropdown Initializer ─────────────────────────────────────────────
+function initCustomDropdowns() {
+  document.querySelectorAll('select:not(.cd-hidden)').forEach(function(sel) {
+    var wrap = document.createElement('div');
+    wrap.className = 'cd-wrap';
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    sel.classList.add('cd-hidden');
+    var trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'cd-trigger';
+    var labelSpan = document.createElement('span');
+    var arrow = document.createElement('span');
+    arrow.className = 'cd-arrow';
+    arrow.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M6 8L1 3h10z"/></svg>';
+    trigger.appendChild(labelSpan);
+    trigger.appendChild(arrow);
+    wrap.appendChild(trigger);
+    var menu = document.createElement('div');
+    menu.className = 'cd-menu';
+    wrap.appendChild(menu);
+    function buildMenu() {
+      menu.innerHTML = '';
+      Array.from(sel.options).forEach(function(opt) {
+        var item = document.createElement('div');
+        item.className = 'cd-item' + (opt.disabled ? ' disabled' : '') + (opt.selected ? ' selected' : '');
+        item.textContent = opt.text;
+        item.dataset.value = opt.value;
+        if (!opt.disabled) {
+          item.addEventListener('click', function() {
+            sel.value = opt.value;
+            sel.dispatchEvent(new Event('change', {bubbles:true}));
+            updateTriggerLabel();
+            closeMenu();
+          });
+        }
+        menu.appendChild(item);
+      });
+    }
+    function updateTriggerLabel() {
+      var chosen = sel.options[sel.selectedIndex];
+      labelSpan.textContent = chosen ? chosen.text : '';
+      menu.querySelectorAll('.cd-item').forEach(function(it, i) {
+        it.classList.toggle('selected', i === sel.selectedIndex);
+      });
+    }
+    buildMenu();
+    updateTriggerLabel();
+    function openMenu() {
+      document.querySelectorAll('.cd-menu.open').forEach(function(m){ m.classList.remove('open'); });
+      document.querySelectorAll('.cd-trigger.open').forEach(function(t){ t.classList.remove('open'); });
+      menu.classList.add('open');
+      trigger.classList.add('open');
+    }
+    function closeMenu() {
+      menu.classList.remove('open');
+      trigger.classList.remove('open');
+    }
+    trigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+      menu.classList.contains('open') ? closeMenu() : openMenu();
+    });
+    document.addEventListener('click', function() { closeMenu(); });
+    menu.addEventListener('click', function(e){ e.stopPropagation(); });
+    sel.addEventListener('change', updateTriggerLabel);
+  });
+}
+document.addEventListener('DOMContentLoaded', initCustomDropdowns);
+
 // Ripple effect on buttons
 document.addEventListener('click', function(e) {
   var btn = e.target.closest('button');
